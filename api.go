@@ -11,6 +11,7 @@ import (
 
 type APIServer struct {
 	listenAddr string
+	store      Storage
 }
 
 type APIFn func(http.ResponseWriter, *http.Request) error
@@ -19,7 +20,7 @@ type APIError struct {
 	Error string
 }
 
-func writeJsonResponse(
+func WriteJSONResponse(
 	responseWriter http.ResponseWriter,
 	status int,
 	value any,
@@ -33,7 +34,7 @@ func makeHTTPHandleFn(apiFn APIFn) http.HandlerFunc {
 	return func(responseWriter http.ResponseWriter, httpRequest *http.Request) {
 		err := apiFn(responseWriter, httpRequest)
 		if err != nil {
-			writeJsonResponse(
+			WriteJSONResponse(
 				responseWriter,
 				http.StatusInternalServerError,
 				APIError{Error: err.Error()},
@@ -42,9 +43,10 @@ func makeHTTPHandleFn(apiFn APIFn) http.HandlerFunc {
 	}
 }
 
-func NewAPIServer(listenAddr string) *APIServer {
+func NewAPIServer(listenAddr string, store Storage) *APIServer {
 	return &APIServer{
 		listenAddr: listenAddr,
+		store:      store,
 	}
 }
 
@@ -52,6 +54,7 @@ func (apiServer *APIServer) Run() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/account", makeHTTPHandleFn(apiServer.handleAccount))
+	router.HandleFunc("/account/{uuid}", makeHTTPHandleFn(apiServer.handleGetAccountById))
 
 	log.Println("API server is running on", apiServer.listenAddr)
 	http.ListenAndServe(apiServer.listenAddr, router)
@@ -63,9 +66,9 @@ func (apiServer *APIServer) handleAccount(
 ) error {
 	switch httpRequest.Method {
 	case http.MethodGet:
-		return apiServer.handleGetAccount(responseWriter, httpRequest)
+		return apiServer.findAllAccounts(responseWriter, httpRequest)
 	case http.MethodPost:
-		return apiServer.handleCreateAccount(responseWriter, httpRequest)
+		return apiServer.createAccount(responseWriter, httpRequest)
 	case http.MethodDelete:
 		return apiServer.handleDeleteAccount(responseWriter, httpRequest)
 	default:
@@ -73,23 +76,50 @@ func (apiServer *APIServer) handleAccount(
 	}
 }
 
-func (apiServer *APIServer) handleGetAccount(
+func (apiServer *APIServer) findAllAccounts(
 	responseWriter http.ResponseWriter,
-	httpRequest *http.Request,
+	_ *http.Request,
 ) error {
-	account := NewAccount(
-		"Hector",
-		"Avalos",
-		"hg.avalosc97@gmail.com",
-	)
-	return writeJsonResponse(responseWriter, http.StatusOK, account)
+	accountList, err := apiServer.store.FindAllAccounts()
+
+	if err != nil {
+		return err
+	}
+	return WriteJSONResponse(responseWriter, http.StatusOK, accountList)
 }
 
-func (apiServer *APIServer) handleCreateAccount(
+func (apiServer *APIServer) handleGetAccountById(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
-	return nil
+	vars := mux.Vars(httpRequest)["uuid"]
+	// account := NewAccount(
+	// 	"Hector",
+	// 	"Avalos",
+	// 	"hg.avalosc97@gmail.com",
+	// )
+	return WriteJSONResponse(responseWriter, http.StatusOK, vars)
+}
+
+func (apiServer *APIServer) createAccount(
+	responseWriter http.ResponseWriter,
+	httpRequest *http.Request,
+) error {
+	createAccReq := new(CreateAccountRequest)
+	if err := json.NewDecoder(httpRequest.Body).Decode(createAccReq); err != nil {
+		return err
+	}
+
+	newlyCreatedAcc := NewAccount(
+		createAccReq.FirstName,
+		createAccReq.LastName,
+		createAccReq.Email,
+	)
+
+	if err := apiServer.store.CreateAccount(newlyCreatedAcc); err != nil {
+		return err
+	}
+	return WriteJSONResponse(responseWriter, http.StatusCreated, newlyCreatedAcc)
 }
 
 func (apiServer *APIServer) handleDeleteAccount(

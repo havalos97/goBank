@@ -1,17 +1,26 @@
 package main
 
 import (
+	"time"
+
 	"github.com/google/uuid"
-	"math/rand"
 )
 
+type CreateAccountRequest struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+}
+
 type Account struct {
-	ID         string
-	FirstName  string
-	LastName   string
-	Email      string
-	ClientCode int
-	Balance    float32
+	ID         string    `json:"id"`
+	FirstName  string    `json:"firstName"`
+	LastName   string    `json:"lastName"`
+	Email      string    `json:"email"`
+	ClientCode int       `json:"clientCode"`
+	Balance    float32   `json:"balance"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 func NewAccount(
@@ -24,7 +33,7 @@ func NewAccount(
 		FirstName:  firstName,
 		LastName:   lastName,
 		Email:      email,
-		ClientCode: rand.Intn(100),
+		ClientCode: 0,
 		Balance:    0.0,
 	}
 }
