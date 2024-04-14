@@ -13,7 +13,7 @@ type CreateAccountRequest struct {
 }
 
 type Account struct {
-	ID         string    `json:"id"`
+	UUID       string    `json:"uuid"`
 	FirstName  string    `json:"firstName"`
 	LastName   string    `json:"lastName"`
 	Email      string    `json:"email"`
@@ -29,7 +29,7 @@ func NewAccount(
 	email string,
 ) *Account {
 	return &Account{
-		ID:         uuid.New().String(),
+		UUID:       uuid.New().String(),
 		FirstName:  firstName,
 		LastName:   lastName,
 		Email:      email,

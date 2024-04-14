@@ -53,14 +53,14 @@ func NewAPIServer(listenAddr string, store Storage) *APIServer {
 func (apiServer *APIServer) Run() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/account", makeHTTPHandleFn(apiServer.handleAccount))
+	router.HandleFunc("/account", makeHTTPHandleFn(apiServer.handleAccounts))
 	router.HandleFunc("/account/{uuid}", makeHTTPHandleFn(apiServer.handleGetAccountById))
 
 	log.Println("API server is running on", apiServer.listenAddr)
 	http.ListenAndServe(apiServer.listenAddr, router)
 }
 
-func (apiServer *APIServer) handleAccount(
+func (apiServer *APIServer) handleAccounts(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
@@ -92,13 +92,15 @@ func (apiServer *APIServer) handleGetAccountById(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
-	vars := mux.Vars(httpRequest)["uuid"]
-	// account := NewAccount(
-	// 	"Hector",
-	// 	"Avalos",
-	// 	"hg.avalosc97@gmail.com",
-	// )
-	return WriteJSONResponse(responseWriter, http.StatusOK, vars)
+	if httpRequest.Method == http.MethodGet {
+		accountUuid := mux.Vars(httpRequest)["uuid"]
+		account, err := apiServer.store.GetAccountByUUID(accountUuid)
+		if err != nil {
+			return err
+		}
+		return WriteJSONResponse(responseWriter, http.StatusOK, account)
+	}
+	return fmt.Errorf("method not allowed %s", httpRequest.Method)
 }
 
 func (apiServer *APIServer) createAccount(
@@ -110,13 +112,14 @@ func (apiServer *APIServer) createAccount(
 		return err
 	}
 
-	newlyCreatedAcc := NewAccount(
-		createAccReq.FirstName,
-		createAccReq.LastName,
-		createAccReq.Email,
+	newlyCreatedAcc, err := apiServer.store.CreateAccount(
+		NewAccount(
+			createAccReq.FirstName,
+			createAccReq.LastName,
+			createAccReq.Email,
+		),
 	)
-
-	if err := apiServer.store.CreateAccount(newlyCreatedAcc); err != nil {
+	if err != nil {
 		return err
 	}
 	return WriteJSONResponse(responseWriter, http.StatusCreated, newlyCreatedAcc)

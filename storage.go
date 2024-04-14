@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 
 	_ "github.com/lib/pq"
 )
@@ -10,7 +9,7 @@ import (
 type Storage interface {
 	GetAccountByUUID(string) (*Account, error)
 	FindAllAccounts() ([]*Account, error)
-	CreateAccount(*Account) error
+	CreateAccount(*Account) (*Account, error)
 	DeleteAccount(string) error
 	UpdateAccount(*Account) error
 }
@@ -47,15 +46,15 @@ func (store *PostgresStore) CreatePGCryptoExtension() error {
 
 func (store *PostgresStore) CreateAccountsTable() error {
 	query := `CREATE TABLE IF NOT EXISTS account (
-		uuid UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-		firstName VARCHAR(255) NOT NULL,
-		lastName VARCHAR(255) NOT NULL,
-		email VARCHAR(255) NOT NULL,
-		clientCode SERIAL,
-		balance DECIMAL(16, 2) NOT NULL DEFAULT 0.0,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`
+    uuid UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    client_code SERIAL,
+    balance DECIMAL(16, 2) NOT NULL DEFAULT 0.0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`
 
 	_, err := store.db.Exec(query)
 	return err
@@ -68,11 +67,10 @@ func (store *PostgresStore) FindAllAccounts() ([]*Account, error) {
 	}
 
 	accountList := []*Account{}
-	fmt.Printf("Rows: %+v\n", rows)
 	for rows.Next() {
-		account := &Account{}
+		account := new(Account)
 		err := rows.Scan(
-			&account.ID,
+			&account.UUID,
 			&account.FirstName,
 			&account.LastName,
 			&account.Email,
@@ -90,32 +88,75 @@ func (store *PostgresStore) FindAllAccounts() ([]*Account, error) {
 }
 
 func (store *PostgresStore) GetAccountByUUID(uuid string) (*Account, error) {
-	return nil, nil
+	rows, err := store.db.Query("SELECT * FROM account WHERE uuid=$1 LIMIT 1;", uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	foundAcc := new(Account)
+	for rows.Next() {
+		account := new(Account)
+		err := rows.Scan(
+			&account.UUID,
+			&account.FirstName,
+			&account.LastName,
+			&account.Email,
+			&account.ClientCode,
+			&account.Balance,
+			&account.CreatedAt,
+			&account.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		foundAcc = account
+	}
+	return foundAcc, nil
 }
 
-func (store *PostgresStore) CreateAccount(account *Account) error {
+func (store *PostgresStore) CreateAccount(account *Account) (*Account, error) {
 	insertionQuery := `INSERT INTO account (
-		firstName,
-		lastName,
-		email
-	) VALUES (
-		$1,
-		$2,
-		$3
-	);`
-	result, err := store.db.Exec(
+    uuid,
+    first_name,
+    last_name,
+    email
+  ) VALUES (
+    $1,
+    $2,
+    $3,
+    $4
+  ) RETURNING
+    uuid,
+    first_name,
+    last_name,
+    email,
+    client_code,
+    balance,
+    created_at,
+    updated_at
+  ;`
+
+	newAcc := new(Account)
+	err := store.db.QueryRow(
 		insertionQuery,
+		account.UUID,
 		account.FirstName,
 		account.LastName,
 		account.Email,
+	).Scan(
+		&newAcc.UUID,
+		&newAcc.FirstName,
+		&newAcc.LastName,
+		&newAcc.Email,
+		&newAcc.ClientCode,
+		&newAcc.Balance,
+		&newAcc.CreatedAt,
+		&newAcc.UpdatedAt,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	fmt.Printf("Result: %+v\n", result)
-
-	return nil
+	return account, nil
 }
 
 func (store *PostgresStore) UpdateAccount(*Account) error {
