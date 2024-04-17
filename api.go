@@ -178,7 +178,12 @@ func (apiServer *APIServer) handleDeleteAccount(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
-	return nil
+	accountUuid := mux.Vars(httpRequest)["uuid"]
+	foundAccount, err := apiServer.store.GetAccountByUUID(accountUuid)
+	if err != nil {
+		return err
+	}
+	return apiServer.store.DeleteAccount(foundAccount.UUID)
 }
 
 func (apiServer *APIServer) handleTransfer(

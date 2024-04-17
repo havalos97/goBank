@@ -178,5 +178,11 @@ func (store *PostgresStore) UpdateAccount(account *Account) (*Account, error) {
 }
 
 func (store *PostgresStore) DeleteAccount(uuid string) error {
-	return nil
+	deleteQuery := `DELETE FROM account WHERE uuid = $1;`
+
+	_, err := store.db.Exec(
+		deleteQuery,
+		uuid,
+	)
+	return err
 }
