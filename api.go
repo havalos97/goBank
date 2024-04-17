@@ -150,8 +150,28 @@ func (apiServer *APIServer) updateAccount(
 	httpRequest *http.Request,
 ) error {
 	accountUuid := mux.Vars(httpRequest)["uuid"]
-	// account, err := apiServer.store.GetAccountByUUID(accountUuid)
-	return WriteJSONResponse(responseWriter, http.StatusCreated, accountUuid)
+	createAccReq := new(UpsertAccountRequest)
+	if err := json.NewDecoder(httpRequest.Body).Decode(createAccReq); err != nil {
+		return err
+	}
+	foundAccount, err := apiServer.store.GetAccountByUUID(accountUuid)
+	if err != nil {
+		return err
+	}
+	if createAccReq.FirstName != "" {
+		foundAccount.FirstName = createAccReq.FirstName
+	}
+	if createAccReq.LastName != "" {
+		foundAccount.LastName = createAccReq.LastName
+	}
+	if createAccReq.Email != "" {
+		foundAccount.Email = createAccReq.Email
+	}
+	updatedAcc, err := apiServer.store.UpdateAccount(foundAccount)
+	if err != nil {
+		return err
+	}
+	return WriteJSONResponse(responseWriter, http.StatusOK, updatedAcc)
 }
 
 func (apiServer *APIServer) handleDeleteAccount(

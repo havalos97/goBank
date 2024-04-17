@@ -12,7 +12,7 @@ type Storage interface {
 	FindAllAccounts() ([]*Account, error)
 	CreateAccount(*Account) (*Account, error)
 	DeleteAccount(string) error
-	UpdateAccount(*Account) error
+	UpdateAccount(*Account) (*Account, error)
 }
 
 type PostgresStore struct {
@@ -119,15 +119,7 @@ func (store *PostgresStore) CreateAccount(account *Account) (*Account, error) {
     $2,
     $3,
     $4
-  ) RETURNING
-    uuid,
-    first_name,
-    last_name,
-    email,
-    client_code,
-    balance,
-    created_at,
-    updated_at
+  ) RETURNING *
   ;`
 
 	newAcc := new(Account)
@@ -153,9 +145,36 @@ func (store *PostgresStore) CreateAccount(account *Account) (*Account, error) {
 	return account, nil
 }
 
-func (store *PostgresStore) UpdateAccount(uuid *Account) error {
-	// account, err := GetAccountByUUID(UUID)
-	return nil
+func (store *PostgresStore) UpdateAccount(account *Account) (*Account, error) {
+	updateQuery := `UPDATE account SET
+    first_name = $1,
+    last_name = $2,
+    email = $3
+    WHERE uuid = $4
+    RETURNING *
+  ;`
+
+	newAcc := new(Account)
+	err := store.db.QueryRow(
+		updateQuery,
+		account.FirstName,
+		account.LastName,
+		account.Email,
+		account.UUID,
+	).Scan(
+		&newAcc.UUID,
+		&newAcc.FirstName,
+		&newAcc.LastName,
+		&newAcc.Email,
+		&newAcc.ClientCode,
+		&newAcc.Balance,
+		&newAcc.CreatedAt,
+		&newAcc.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 func (store *PostgresStore) DeleteAccount(uuid string) error {
