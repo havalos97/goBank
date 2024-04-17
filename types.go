@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type CreateAccountRequest struct {
+type UpsertAccountRequest struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`

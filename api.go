@@ -62,14 +62,14 @@ func NewAPIServer(listenAddr string, store Storage) *APIServer {
 func (apiServer *APIServer) Run() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/account", makeHTTPHandleFn(apiServer.handleAccounts))
-	router.HandleFunc("/account/{uuid}", makeHTTPHandleFn(apiServer.handleGetAccountById))
+	router.HandleFunc("/account", makeHTTPHandleFn(apiServer.handleAccountsOps))
+	router.HandleFunc("/account/{uuid}", makeHTTPHandleFn(apiServer.handleAccountSpecificOps))
 
 	log.Println("API server is running on", apiServer.listenAddr)
 	http.ListenAndServe(apiServer.listenAddr, router)
 }
 
-func (apiServer *APIServer) handleAccounts(
+func (apiServer *APIServer) handleAccountsOps(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
@@ -78,6 +78,20 @@ func (apiServer *APIServer) handleAccounts(
 		return apiServer.findAllAccounts(responseWriter, httpRequest)
 	case http.MethodPost:
 		return apiServer.createAccount(responseWriter, httpRequest)
+	default:
+		return fmt.Errorf("method not allowed %s", httpRequest.Method)
+	}
+}
+
+func (apiServer *APIServer) handleAccountSpecificOps(
+	responseWriter http.ResponseWriter,
+	httpRequest *http.Request,
+) error {
+	switch httpRequest.Method {
+	case http.MethodGet:
+		return apiServer.findAccountById(responseWriter, httpRequest)
+	case http.MethodPut:
+		return apiServer.updateAccount(responseWriter, httpRequest)
 	case http.MethodDelete:
 		return apiServer.handleDeleteAccount(responseWriter, httpRequest)
 	default:
@@ -85,38 +99,11 @@ func (apiServer *APIServer) handleAccounts(
 	}
 }
 
-func (apiServer *APIServer) findAllAccounts(
-	responseWriter http.ResponseWriter,
-	_ *http.Request,
-) error {
-	accountList, err := apiServer.store.FindAllAccounts()
-
-	if err != nil {
-		return err
-	}
-	return WriteJSONResponse(responseWriter, http.StatusOK, accountList)
-}
-
-func (apiServer *APIServer) handleGetAccountById(
-	responseWriter http.ResponseWriter,
-	httpRequest *http.Request,
-) error {
-	if httpRequest.Method == http.MethodGet {
-		accountUuid := mux.Vars(httpRequest)["uuid"]
-		account, err := apiServer.store.GetAccountByUUID(accountUuid)
-		if err != nil {
-			return err
-		}
-		return WriteJSONResponse(responseWriter, http.StatusOK, account)
-	}
-	return fmt.Errorf("method not allowed %s", httpRequest.Method)
-}
-
 func (apiServer *APIServer) createAccount(
 	responseWriter http.ResponseWriter,
 	httpRequest *http.Request,
 ) error {
-	createAccReq := new(CreateAccountRequest)
+	createAccReq := new(UpsertAccountRequest)
 	if err := json.NewDecoder(httpRequest.Body).Decode(createAccReq); err != nil {
 		return err
 	}
@@ -132,6 +119,39 @@ func (apiServer *APIServer) createAccount(
 		return err
 	}
 	return WriteJSONResponse(responseWriter, http.StatusCreated, newlyCreatedAcc)
+}
+
+func (apiServer *APIServer) findAllAccounts(
+	responseWriter http.ResponseWriter,
+	_ *http.Request,
+) error {
+	accountList, err := apiServer.store.FindAllAccounts()
+
+	if err != nil {
+		return err
+	}
+	return WriteJSONResponse(responseWriter, http.StatusOK, accountList)
+}
+
+func (apiServer *APIServer) findAccountById(
+	responseWriter http.ResponseWriter,
+	httpRequest *http.Request,
+) error {
+	accountUuid := mux.Vars(httpRequest)["uuid"]
+	account, err := apiServer.store.GetAccountByUUID(accountUuid)
+	if err != nil {
+		return err
+	}
+	return WriteJSONResponse(responseWriter, http.StatusOK, account)
+}
+
+func (apiServer *APIServer) updateAccount(
+	responseWriter http.ResponseWriter,
+	httpRequest *http.Request,
+) error {
+	accountUuid := mux.Vars(httpRequest)["uuid"]
+	// account, err := apiServer.store.GetAccountByUUID(accountUuid)
+	return WriteJSONResponse(responseWriter, http.StatusCreated, accountUuid)
 }
 
 func (apiServer *APIServer) handleDeleteAccount(

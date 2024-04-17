@@ -19,6 +19,24 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
+func rowToAccount(rows *sql.Rows) (*Account, error) {
+	account := new(Account)
+	err := rows.Scan(
+		&account.UUID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Email,
+		&account.ClientCode,
+		&account.Balance,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
+}
+
 func NewPostgresStore() (*PostgresStore, error) {
 	connectionString := "user=postgres dbname=postgres password=goBank123. sslmode=disable"
 	db, err := sql.Open("postgres", connectionString)
@@ -69,17 +87,7 @@ func (store *PostgresStore) FindAllAccounts() ([]*Account, error) {
 
 	accountList := []*Account{}
 	for rows.Next() {
-		account := new(Account)
-		err := rows.Scan(
-			&account.UUID,
-			&account.FirstName,
-			&account.LastName,
-			&account.Email,
-			&account.ClientCode,
-			&account.Balance,
-			&account.CreatedAt,
-			&account.UpdatedAt,
-		)
+		account, err := rowToAccount(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -94,28 +102,10 @@ func (store *PostgresStore) GetAccountByUUID(uuid string) (*Account, error) {
 		return nil, err
 	}
 
-	foundAcc := new(Account)
-	i := 0
 	for rows.Next() {
-		i++
-		err := rows.Scan(
-			&foundAcc.UUID,
-			&foundAcc.FirstName,
-			&foundAcc.LastName,
-			&foundAcc.Email,
-			&foundAcc.ClientCode,
-			&foundAcc.Balance,
-			&foundAcc.CreatedAt,
-			&foundAcc.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
+		return rowToAccount(rows)
 	}
-	if i == 0 {
-		return nil, fmt.Errorf("not found")
-	}
-	return foundAcc, nil
+	return nil, fmt.Errorf("not found")
 }
 
 func (store *PostgresStore) CreateAccount(account *Account) (*Account, error) {
@@ -163,7 +153,8 @@ func (store *PostgresStore) CreateAccount(account *Account) (*Account, error) {
 	return account, nil
 }
 
-func (store *PostgresStore) UpdateAccount(*Account) error {
+func (store *PostgresStore) UpdateAccount(uuid *Account) error {
+	// account, err := GetAccountByUUID(UUID)
 	return nil
 }
 
