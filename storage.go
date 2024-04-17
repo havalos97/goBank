@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "github.com/lib/pq"
 )
@@ -94,22 +95,25 @@ func (store *PostgresStore) GetAccountByUUID(uuid string) (*Account, error) {
 	}
 
 	foundAcc := new(Account)
+	i := 0
 	for rows.Next() {
-		account := new(Account)
+		i++
 		err := rows.Scan(
-			&account.UUID,
-			&account.FirstName,
-			&account.LastName,
-			&account.Email,
-			&account.ClientCode,
-			&account.Balance,
-			&account.CreatedAt,
-			&account.UpdatedAt,
+			&foundAcc.UUID,
+			&foundAcc.FirstName,
+			&foundAcc.LastName,
+			&foundAcc.Email,
+			&foundAcc.ClientCode,
+			&foundAcc.Balance,
+			&foundAcc.CreatedAt,
+			&foundAcc.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
-		foundAcc = account
+	}
+	if i == 0 {
+		return nil, fmt.Errorf("not found")
 	}
 	return foundAcc, nil
 }

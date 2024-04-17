@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -34,6 +35,14 @@ func makeHTTPHandleFn(apiFn APIFn) http.HandlerFunc {
 	return func(responseWriter http.ResponseWriter, httpRequest *http.Request) {
 		err := apiFn(responseWriter, httpRequest)
 		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				WriteJSONResponse(
+					responseWriter,
+					http.StatusNotFound,
+					APIError{Error: err.Error()},
+				)
+				return
+			}
 			WriteJSONResponse(
 				responseWriter,
 				http.StatusInternalServerError,
